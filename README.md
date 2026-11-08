@@ -1,3 +1,10 @@
+## Rover Frontend Setup Guide
+
+For detailed instructions on installing Unity and
+launching the Rover frontend, see:
+
+[Frontend Installation Guide](README_And_ProjectScope_Info.md)
+
 # GSCAP: Mars Rover Ground Station Control and Planning
 
 A Unity ground station for the DAM Robotics Club Mars rover. Operators use it to view telemetry, send commands, and plan missions. Built as an Oregon State University senior capstone.
