@@ -53,14 +53,15 @@ Keep using the UDP bridge without testing it on purpose, and deal with problems 
 
 **Switching costs less than it first looks, but it isn't free.** Unity scripts call the bridge only through `UdpController.inst`, using a few methods (`PublishMessage`, `ConfigureSubscription`, `GetLatestMessage`, `PublishClientReq`). That means a switch could mostly stay inside `UdpController.cs`. But the scripts build their own JSON in the bridge's format (`topic`, `msgType`, `data`), so `UdpController.cs` would have to convert that to rosbridge's format on the way out and back on the way in. That's doable, but it's new code we'd have to test, on a team where no one has the app running yet.
 
-**There's at least one bug already, found by reading.** `arucoMarkerID.cs` subscribes to `/infared/aruco_id` (and two other topics) with the type `"int32"`. The bridge passes that straight to `get_message`, which expects a full name like `std_msgs/msg/Int32`. As far as we can tell, those subscriptions fail, and the bridge logs an error without stopping. We haven't confirmed this by running it. It's a small fix, but it shows the bridge's users haven't been fully tested together, which matches the October 17 commit.
+**There's at least one bug already, found by reading.** `arucoMarkerID.cs` subscribes to `/infared/aruco_id` (and two other topics) with the type `"int32"`. The bridge passes that straight to `get_message`, which expects a full name like `std_msgs/msg/Int32`. As far as we can tell, those subscriptions fail, and the bridge logs an error without stopping. The first topic is also misspelled: the script asks for `/infared/aruco_id`, but the rover publishes `/infrared/aruco_id` (`monitor_aruco.py`), and the old Ros2ForUnity code left in the same file spells it correctly. We haven't confirmed either problem by running it. It's a small fix, but it shows the bridge's users haven't been fully tested together, which matches the October 17 commit.
 
 **The local-only limit doesn't hurt us yet.** Our deployment plan already runs Unity and the bridge on the same laptop (`docs/design.md`), and the laptop reaches the rover through ROS 2 over Zenoh, not through the bridge. So that limit only matters if the plan changes.
 
 **What we're unsure about:**
 
 - Why the club switched away from Ros2ForUnity. If it was for a reason that also applies to rosbridge, Option B is weaker.
-- Whether the bridge's 30 Hz per-topic limit on outgoing messages is fast enough for drive and arm control.
+- Whether the bridge's 30 Hz per-topic limit is fast enough for telemetry. The limit only applies to messages going from ROS back to Unity (`UDPBridgeSub.py`). Commands from Unity to ROS aren't limited.
+- How fast the bridge is in practice. Nobody has measured it, which is why the Verification Plan includes latency targets.
 - Which Unity WebSocket client would work with Unity 2022.3, if we went with Option B.
 - How well the bridge holds up under real use. No one on our team has run it.
 
@@ -81,12 +82,23 @@ Keep using the UDP bridge without testing it on purpose, and deal with problems 
 
 Steps 2 to 4 don't need Unity, so they can be checked before the app runs. Steps 5 and 6 match the walking skeleton in `docs/design.md`.
 
+**Latency targets.** These are starting targets the team picked so the test has a clear pass or fail. They don't come from a standard, and we'll confirm them with Jared. They only cover the bridge on one laptop, not the network link to the rover.
+
+| What | Target | How we measure it |
+| --- | --- | --- |
+| Bridge round trip | Under 100 ms on average, over 100 messages | The test script subscribes to `/chatter` through the bridge, publishes through the bridge, and times how long each message takes to come back on port 65435. Half the round trip is roughly the one-way delay. |
+| Drive command rate | At least 20 messages per second while the stick is held | `ros2 topic hz /cmd_vel` during step 5 |
+| Arm command rate | At least 20 messages per second while the arm control is held | `ros2 topic hz` on the arm's command topic during step 5 |
+| Telemetry rate in the app | At least 10 updates per second | `ros2 topic hz /joint_states` during step 6, compared with what the app shows |
+
+A miss on any of these counts as a failed step.
+
 **Who and when.** Tetsuya Bassler writes the test script for steps 2 to 4 and any fixes the test turns up, and pushes them to a branch. Luis Pringle runs them on his laptop, since it's the first one with the software installed, and reports what passed or failed. Steps 1 to 4 happen at Luis's first run. Steps 5 and 6 happen with the staging work in `docs/risks.md` (December 5, 2026, tentative).
 
 **What would make us revisit this:**
 
 - Any step fails, and the fix needs more than a small change to the bridge or `UdpController.cs`.
-- Drive or arm commands feel laggy at the bridge's 30 Hz limit.
+- The bridge misses the latency targets, and the cause is in the bridge rather than the laptop.
 - The club decides to move off the bridge.
 - Nolan's answer about why they left Ros2ForUnity changes the picture.
 
@@ -100,11 +112,12 @@ Steps 2 to 4 don't need Unity, so they can be checked before the app runs. Steps
 
 - **What was handed to AI tools:** Claude (Anthropic) read both repos and drafted most of this RFC: the code findings, the option research, and the writing. It also checked rosbridge_suite, Ros2ForUnity, and ROS-TCP-Connector status from their public pages.
 - **What checks made that reasonable:** Every claim cites a file, commit, or public page a reviewer can check. This is a document, not code, so nothing ships from it directly. It goes through our normal pull request review (1 approval, per `CONTRIBUTING.md`). There are no tests or CI in the repo yet.
-- **Where validation happens:** The author hasn't separately re-checked the AI's findings. Instead, every finding is cited so a reviewer can check it in a minute or two, and the ones this recommendation leans on most are these:
-  - The 13 scripts that use `UdpController.cs` (search the repo for `UdpController`)
-  - The `"int32"` subscription in `arucoMarkerID.cs`, and that `get_message` rejects it
-  - The commit dates and pull request #31 in the club's history
-  - The rosbridge Jazzy release, Ros2ForUnity's supported distros, and its maintenance note
+- **Where I validated it myself:** After a teammate asked for it in review, I checked the code findings against the source files:
+  - `arucoMarkerID.cs` lines 36 to 38 subscribe with the type `"int32"`, and the first topic is spelled `/infared/aruco_id`.
+  - `monitor_aruco.py` in the rover repo builds its topics as `/{label}/aruco_id` (line 23) with the label `"infrared"` (line 61), so the rover publishes `/infrared/aruco_id`.
+  - `UDPBridgeSub.py` sets the 30 Hz limit (line 33), and `UDPBridgePub.py` has no rate limit, so it only affects ROS-to-Unity messages.
+
+  I haven't confirmed by running it that `get_message` rejects `"int32"`. Luis's step 6 run will show that. The other cited facts (the 13 scripts using `UdpController.cs`, the club's commit dates and pull request #31, and the rosbridge, Ros2ForUnity, and ROS-TCP-Connector details) come from the AI's reading and are cited so a reviewer can check them.
 
   The real check on the recommendation is the baseline test. If the bridge doesn't work the way this RFC expects, the test will show it before we build on it.
 
