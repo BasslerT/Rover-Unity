@@ -1,4 +1,4 @@
-# GSCAP: Mars Rover Ground Station Control and Planning
+# GSCAP: Mars Rover Ground Station Controls and Planning
 
 A Unity ground station for the DAM Robotics Club Mars rover. Operators use it to view telemetry, send commands, and plan missions. This repository is our team's fork of the club's [Rover-Unity](https://github.com/OSURoboticsClub/Rover-Unity), made with permission from Jared Northrop and Nolan Kessler. The project is being developed as an Oregon State University senior capstone.
 
@@ -46,16 +46,19 @@ git clone https://github.com/BasslerT/Rover-Unity.git
 git clone https://github.com/OSURoboticsClub/Rover_2026_2027.git
 ```
 
-If you are reproducing the original UI verification against the club's Unity source, use this instead of the team-fork clone:
+If you want to compare the original club Unity source with the team fork, clone it into a **different folder** so the two repositories do not conflict:
 
 ```bash
-git clone https://github.com/OSURoboticsClub/Rover-Unity.git
+cd ~
+git clone https://github.com/OSURoboticsClub/Rover-Unity.git Rover-Unity-club
 ```
 
-If you already cloned the repositories, do not clone them again. Check which folders exist:
+Use `~/Rover-Unity` for the team fork, or `~/Rover-Unity-club` for the club source. If you only need one version, clone just that version and select its folder in Unity Hub.
+
+If you already cloned the repositories, do not clone them again. Check which folders exist (missing folders may produce a harmless `No such file or directory` message):
 
 ```bash
-ls -d ~/Rover-Unity ~/Rover_2026_2027
+ls -d ~/Rover-Unity ~/Rover-Unity-club ~/Rover_2026_2027
 ```
 
 - `~/Rover-Unity` contains the Unity ground station and Unity-related bridge code.
@@ -102,7 +105,7 @@ In Unity Hub:
 
 1. In Unity Hub, open **Projects**.
 2. Choose **Add project from disk**.
-3. Select `~/Rover-Unity` (the repository root containing `Assets`, `Packages`, and `ProjectSettings`).
+3. Select `~/Rover-Unity` for the team fork, or `~/Rover-Unity-club` for the club source (the repository root containing `Assets`, `Packages`, and `ProjectSettings`).
 4. Open it with Unity **2022.3.32f1**.
 5. Wait for the first asset import and C# compilation to finish.
 
@@ -196,14 +199,14 @@ cd $HOME
 git clone https://github.com/BasslerT/Rover-Unity.git
 ```
 
-To reproduce the club-source verification instead, clone `https://github.com/OSURoboticsClub/Rover-Unity.git`. The Unity project will be in a Windows path such as `C:\Users\<WindowsUser>\Rover-Unity`.
+To compare the club source with the team fork, clone the club version into a separate folder using `git clone https://github.com/OSURoboticsClub/Rover-Unity.git Rover-Unity-club`. The team fork will be in a Windows path such as `C:\Users\<WindowsUser>\Rover-Unity`.
 
 ### 3. Install Unity Editor and view the front end
 
 1. Sign in to Unity Hub on **Windows**.
-2. Go to **Installs → Install Editor** and choose **2022.3.32f1**. Use the [Unity archive](https://unity.com/releases/editor/archive) if needed.
+2. Go to **Installs > Install Editor** and choose **2022.3.32f1**. Use the [Unity archive](https://unity.com/releases/editor/archive) if needed.
 3. The base Editor is enough for an initial UI preview.
-4. Under **Projects → Add project from disk**, choose the Windows `Rover-Unity` folder containing `Assets`, `Packages`, and `ProjectSettings`.
+4. Under **Projects > Add project from disk**, choose the Windows `Rover-Unity` folder containing `Assets`, `Packages`, and `ProjectSettings`.
 5. Open the project and wait for asset import.
 6. In Unity's **Project** panel, double-click `Assets/Control Interface App/Application.unity`.
 7. Open the **Game** tab and click **Play**.
@@ -217,10 +220,17 @@ Open the **Ubuntu 24.04 terminal**, not PowerShell:
 
 ```bash
 sudo apt update
-sudo apt install -y git curl gpg python3-colcon-common-extensions python3-rosdep
+sudo apt install -y git curl gpg
 ```
 
-Install ROS 2 Jazzy for Ubuntu 24.04 using the [official Debian-package instructions](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html). Then verify:
+Install ROS 2 Jazzy for Ubuntu 24.04 using the [official Debian-package instructions](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html). This configures the ROS 2 apt repository. **After installing Jazzy**, install the ROS build helpers:
+
+```bash
+sudo apt update
+sudo apt install -y python3-colcon-common-extensions python3-rosdep
+```
+
+Then verify:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -258,7 +268,7 @@ The Windows checkout is for the Unity Editor and the WSL2 checkout is for Linux 
 
 ## Troubleshooting
 
-### Unity Hub stays on “Signing in…”
+### Unity Hub stays on "Signing in..."
 
 On the verified Ubuntu setup, Unity Hub initially stayed on the sign-in spinner. Restarting Unity Hub and retrying browser authentication eventually opened the dashboard, though the exact action that fixed it was not isolated. If the browser asks to open Unity Hub, allow it.
 
@@ -280,7 +290,13 @@ During UI exploration, `NullReferenceException` and `ArgumentException: method r
 
 ### ROS 2 package name contains `ros--...`
 
-`$ROS_DISTRO` may be empty. In the same terminal, run:
+For example, the following command would incorrectly request `ros--ros-gz` if `ROS_DISTRO` were empty (this is an example, not a required setup step):
+
+```bash
+sudo apt install ros-$ROS_DISTRO-ros-gz
+```
+
+Check whether `$ROS_DISTRO` is empty. In the same terminal, run:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -309,21 +325,7 @@ The Unity interface has pages for **Cameras**, **Telemetry**, and **Autonomy** i
 
 The club's older README was written for Ubuntu 22.04, ROS 2 Humble, and the `Rover_2023_2024` repository. The current Rover team uses Ubuntu 24.04 and ROS 2 Jazzy with `Rover_2026_2027`. Compatibility between the older Unity bridge and Jazzy is not yet verified.
 
-The older guide also contains these ROS 2 workspace steps:
-
-```bash
-# From the Rover-Unity checkout
-cd Rover-Unity/ros2_ws
-colcon build --packages-select py_pubsub
-. install/setup.bash
-
-# The older club guide used Rover_2023_2024 for message definitions
-cd Rover_2023_2024/software
-colcon build --packages-select rover2_control_interface rover2_status_interface
-. install/setup.bash
-```
-
-These commands are preserved as historical reference only. They are not the verified Jazzy setup path above, and the bridge's compatibility with the current Rover has not been established. The old guide also mentioned running `ros2 launch py_pubsub local_net_launch.py`; that launch path has not been verified with the current setup.
+The older guide included bridge-build commands for the legacy repository and ROS 2 Humble. They are intentionally **not repeated as runnable setup steps** here, because their compatibility with Jazzy and the current Rover software has not been established. For current setup, follow [Install dependencies and build the Rover workspace](#install-dependencies-and-build-the-rover-workspace). The legacy `py_pubsub` launch procedure is still unverified with this configuration.
 
 ### Decisions
 
@@ -337,7 +339,8 @@ Still open:
 
 - How Unity will connect to ROS 2: keep the club's UDP bridge, adapt it, or use another approach.
 
-Major decisions are documented as RFCs in [`docs/rfcs/`](docs/rfcs/).
+Major project decisions are documented in
+[docs/rfcs/](docs/rfcs/).
 
 ### Tests and CI
 
@@ -347,13 +350,14 @@ The tentative first test and CI run target is **November 14, 2026**, subject to 
 
 1. Create a free Unity account for the team and activate a Personal license in Unity Hub. This creates a `Unity_lic.ulf` license file.
 2. Add GitHub repository secrets under **Settings > Secrets and variables > Actions**: `UNITY_LICENSE` (license file contents), `UNITY_EMAIL`, and `UNITY_PASSWORD`.
-3. Add an Edit Mode test that checks the project loads key assets, such as the `Application` scene and `UdpController` script.
+3. Add an Edit Mode test that checks the project loads key assets, such as the `Application` scene and a confirmed existing Unity script (verify the exact script filename before writing the test).
 4. Add a GitHub Actions workflow using [GameCI](https://game.ci) to run tests on every pull request.
 5. Open a pull request and confirm the run passes.
 
 ### Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). Team discussion happens on Discord.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+Team discussion happens on Discord.
 
 ### License
 
